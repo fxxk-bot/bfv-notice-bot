@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/bfvnoticebot">
+        <file>bfv.ico</file>
+    </qresource>
+</RCC>
