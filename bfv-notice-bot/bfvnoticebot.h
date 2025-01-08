@@ -28,12 +28,15 @@ private slots:
     void clickBtn();
 
     void doTimer();
+
+    void ignoreApiError();
 public:
     QNetworkAccessManager* manager;
 
 private:
     Ui::bfvnoticebotClass ui;
     QString napcatUrl;
+    QString napcatQq;
     QString apiRemid;
     QString apiSid;
     QTimer* timer = nullptr;

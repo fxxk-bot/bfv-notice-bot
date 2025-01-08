@@ -14,7 +14,8 @@
    <string>战地五公告机</string>
   </property>
   <property name="windowIcon">
-   <iconset theme=":/bfvnoticebot/bfv.ico"/>
+   <iconset>
+    <normaloff>bfv.ico</normaloff>bfv.ico</iconset>
   </property>
   <widget class="QWidget" name="centralWidget">
    <layout class="QGridLayout" name="gridLayout">
@@ -66,7 +67,7 @@
              <item>
               <widget class="QRadioButton" name="napcatRadioButton">
                <property name="text">
-                <string>NapCat</string>
+                <string>NapCat-战地5哔哔机</string>
                </property>
               </widget>
              </item>
@@ -183,6 +184,7 @@
      <string>其它</string>
     </property>
     <addaction name="actionAbout"/>
+    <addaction name="actionIgnoreError"/>
    </widget>
    <addaction name="menuConfigure"/>
    <addaction name="menuothers"/>
@@ -210,6 +212,11 @@
   <action name="actionAbout">
    <property name="text">
     <string>关于</string>
+   </property>
+  </action>
+  <action name="actionIgnoreError">
+   <property name="text">
+    <string>忽略接口错误</string>
    </property>
   </action>
  </widget>

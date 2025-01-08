@@ -21,12 +21,14 @@ bfvnoticebot::bfvnoticebot(QWidget *parent)
 	timer = new QTimer(this);
 	this->manager = new QNetworkAccessManager(this);
 	this->napcatUrl = "http://localhost:3000";
+	this->napcatQq = "3889363571";
 
 
     connect(ui.actionNapcatConfig, &QAction::triggered, this, &bfvnoticebot::config_napcat);
     connect(ui.actionApiConfig, &QAction::triggered, this, &bfvnoticebot::config_api);
 
 	connect(ui.actionAbout, &QAction::triggered, this, &bfvnoticebot::about);
+	connect(ui.actionIgnoreError, &QAction::triggered, this, &bfvnoticebot::ignoreApiError);
 
 	connect(timer, &QTimer::timeout, this, &bfvnoticebot::doTimer);
 
@@ -200,7 +202,12 @@ void bfvnoticebot::config_napcat() {
 	urlEdit->setText(this->napcatUrl);
 	urlEdit->setPlaceholderText("请填写NapCat地址");
 
+	QLineEdit* qqEdit = new QLineEdit(&dialog);
+	qqEdit->setText(this->napcatQq);
+	qqEdit->setPlaceholderText("请填写哔哔机QQ号");
+
 	formLayout.addRow("<p>地址: </p>", urlEdit);
+	formLayout.addRow("<p>哔哔机QQ号: </p>", qqEdit);
 
 	QPushButton* testButton = new QPushButton("测试", &dialog);
 	QDialogButtonBox buttonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel,
@@ -212,9 +219,24 @@ void bfvnoticebot::config_napcat() {
 
 	connect(testButton, &QPushButton::clicked, [&]() {
 		QString url = urlEdit->text();
+		QString qq = qqEdit->text();
 
 		if (url.isEmpty()) {
 			QMessageBox::warning(&dialog, "提示", "地址不能为空！");
+			return;
+		}
+
+		if (qq.isEmpty()) {
+			QMessageBox::warning(&dialog, "提示", "哔哔机QQ号不能为空！");
+			return;
+		}
+
+		bool ok;
+
+		unsigned long qqNumber = qq.toULong(&ok);
+
+		if (!ok) {
+			QMessageBox::warning(&dialog, "提示", "哔哔机QQ号格式不正确！");
 			return;
 		}
 
@@ -228,8 +250,8 @@ void bfvnoticebot::config_napcat() {
 		QApplication::processEvents();
 
 		QJsonObject jsonData;
-		jsonData["user_id"] = 3889013937;
-		jsonData["message"] = "/chat 公告机测试";
+		jsonData["user_id"] = qq;
+		jsonData["message"] = "公告机测试";
 
 		auto resp = http::post(this, url + "/send_private_msg", jsonData);
 
@@ -258,12 +280,24 @@ void bfvnoticebot::config_napcat() {
 	while (1 && dialog.exec() == QDialog::Accepted) {
 
 		QString url = urlEdit->text();
+		QString qq = qqEdit->text();
 
-		if (url.isEmpty()) {
-			QMessageBox::warning(&dialog, "提示", "地址不能为空！");
+		if (url.isEmpty() || qq.isEmpty()) {
+			QMessageBox::warning(&dialog, "提示", "地址或哔哔机QQ号不能为空！");
 			continue;
 		}
+
+		bool ok;
+
+		unsigned long qqNumber = qq.toULong(&ok);
+
+		if (!ok) {
+			QMessageBox::warning(&dialog, "提示", "哔哔机QQ号格式不正确！");
+			continue;
+		}
+
 		this->napcatUrl = url;
+		this->napcatQq = qq;
 		break;
 	}
 }
@@ -274,7 +308,6 @@ void bfvnoticebot::clickBtn() {
 	auto text = ui.pushButton->text();
 
 	if (text == "开始") {
-		ui.pushButton->setText("停止");
 
 		if (ui.apiRadioButton->isChecked()) {
 			if (this->apiRemid.isEmpty() || this->apiSid.isEmpty()) {
@@ -282,6 +315,9 @@ void bfvnoticebot::clickBtn() {
 				return;
 			}
 		}
+
+		ui.pushButton->setText("停止");
+
 		
 		int round = ui.roundSpinBox->value();
 
@@ -301,6 +337,10 @@ void bfvnoticebot::doTimer() {
 	
 	int itemCount = ui.listWidget->count();
 
+	auto text = ui.actionIgnoreError->text();
+
+	bool showError = text == "忽略接口错误";
+
 	for (int i = 0; i < itemCount; ++i) {
 		QListWidgetItem* item = ui.listWidget->item(i);
 
@@ -314,43 +354,49 @@ void bfvnoticebot::doTimer() {
 			jsonData["gameId"] = 0;
 			QString url = "https://api.bfvrobot.net/api/player/sendMessage";
 			QString resp = http::post(this, url, jsonData);
-			QJsonDocument jsonDoc = QJsonDocument::fromJson(resp.toUtf8());
-			if (jsonDoc.isNull() || !jsonDoc.isObject()) {
-				QMessageBox::warning(this, "测试", QString("失败: 无效的响应"));
-				return;
-			}
-			QJsonObject jsonObj = jsonDoc.object();
-			QString code = jsonObj.value("code").toString();
 
-			if (code != "sendMessage.success") {
-				if (code == "sendMessage.invalid_cookies") {
-					QMessageBox::warning(this, "测试", QString("cookies失效, 响应:\n%1").arg(resp));
+			if (showError) {
+				QJsonDocument jsonDoc = QJsonDocument::fromJson(resp.toUtf8());
+				if (jsonDoc.isNull() || !jsonDoc.isObject()) {
+					QMessageBox::warning(this, "测试", QString("失败: 无效的响应"));
+					return;
 				}
-				else {
-					QMessageBox::warning(this, "测试", QString("失败, 响应:\n%1").arg(resp));
+				QJsonObject jsonObj = jsonDoc.object();
+				QString code = jsonObj.value("code").toString();
+
+				if (code != "sendMessage.success") {
+					if (code == "sendMessage.invalid_cookies") {
+						QMessageBox::warning(this, "测试", QString("cookies失效, 响应:\n%1").arg(resp));
+					}
+					else {
+						QMessageBox::warning(this, "测试", QString("失败, 响应:\n%1").arg(resp));
+					}
+					return;
 				}
-				return;
 			}
+
 		}
 		else if (ui.napcatRadioButton->isChecked()) {
 			QJsonObject jsonData;
-			jsonData["user_id"] = 3889013937;
-			jsonData["message"] = "/chat " + itemText;
+			jsonData["user_id"] = this->napcatQq;
+			jsonData["message"] = itemText;
 
 			auto resp = http::post(this, this->napcatUrl + "/send_private_msg", jsonData);
 
-			QJsonDocument jsonDoc = QJsonDocument::fromJson(resp.toUtf8());
-			if (jsonDoc.isNull() || !jsonDoc.isObject()) {
-				QMessageBox::warning(this, "测试", QString("失败: 无效的响应"));
-				return;
-			}
-			QJsonObject jsonObj = jsonDoc.object();
-			int retcode = jsonObj.value("retcode").toInt();
-			QString status = jsonObj.value("status").toString();
+			if (showError) {
+				QJsonDocument jsonDoc = QJsonDocument::fromJson(resp.toUtf8());
+				if (jsonDoc.isNull() || !jsonDoc.isObject()) {
+					QMessageBox::warning(this, "测试", QString("失败: 无效的响应"));
+					return;
+				}
+				QJsonObject jsonObj = jsonDoc.object();
+				int retcode = jsonObj.value("retcode").toInt();
+				QString status = jsonObj.value("status").toString();
 
-			if (retcode != 0 || status != "ok") {
-				QMessageBox::warning(this, "测试", QString("失败, 响应:\n%1").arg(resp));
-				return;
+				if (retcode != 0 || status != "ok") {
+					QMessageBox::warning(this, "测试", QString("失败, 响应:\n%1").arg(resp));
+					return;
+				}
 			}
 		}
 
@@ -359,6 +405,14 @@ void bfvnoticebot::doTimer() {
 }
 
 
+void bfvnoticebot::ignoreApiError() {
+    auto text =	ui.actionIgnoreError->text();
+	if (text == "忽略接口错误") {
+		ui.actionIgnoreError->setText("提示接口错误");
+	} else if (text == "提示接口错误") {
+		ui.actionIgnoreError->setText("忽略接口错误");
+	}
+}
 
 void bfvnoticebot::about() {
 	QMessageBox msgBox(this);
