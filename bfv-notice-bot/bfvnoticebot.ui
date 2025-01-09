@@ -14,8 +14,7 @@
    <string>战地五公告机</string>
   </property>
   <property name="windowIcon">
-   <iconset>
-    <normaloff>bfv.ico</normaloff>bfv.ico</iconset>
+   <iconset theme=":/bfvnoticebot/bfv.ico"/>
   </property>
   <widget class="QWidget" name="centralWidget">
    <layout class="QGridLayout" name="gridLayout">

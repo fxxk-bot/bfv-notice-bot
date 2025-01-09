@@ -1,6 +1,7 @@
 ﻿#include "bfvnoticebot.h"
 
 #include "http.h"
+#include "file.h"
 
 #include <QDialog>
 #include <QFormLayout>
@@ -12,20 +13,23 @@
 #include <QJsonObject>
 #include <QTimer>
 #include <QThread>
+#include <QJsonArray>
 
-bfvnoticebot::bfvnoticebot(QWidget *parent)
-    : QMainWindow(parent)
-{
-    ui.setupUi(this);
+
+
+
+bfvnoticebot::bfvnoticebot(QWidget* parent)
+	: QMainWindow(parent) {
+	ui.setupUi(this);
 
 	timer = new QTimer(this);
+
 	this->manager = new QNetworkAccessManager(this);
-	this->napcatUrl = "http://localhost:3000";
-	this->napcatQq = "3889363571";
 
+	this->readConfig();
 
-    connect(ui.actionNapcatConfig, &QAction::triggered, this, &bfvnoticebot::config_napcat);
-    connect(ui.actionApiConfig, &QAction::triggered, this, &bfvnoticebot::config_api);
+	connect(ui.actionNapcatConfig, &QAction::triggered, this, &bfvnoticebot::config_napcat);
+	connect(ui.actionApiConfig, &QAction::triggered, this, &bfvnoticebot::config_api);
 
 	connect(ui.actionAbout, &QAction::triggered, this, &bfvnoticebot::about);
 	connect(ui.actionIgnoreError, &QAction::triggered, this, &bfvnoticebot::ignoreApiError);
@@ -36,10 +40,8 @@ bfvnoticebot::bfvnoticebot(QWidget *parent)
 
 	connect(ui.listWidget, &QListWidget::customContextMenuRequested, this, &bfvnoticebot::showContextMenu);
 
-	ui.listWidget->setContextMenuPolicy(Qt::CustomContextMenu);
 
-	ui.listWidget->addItem("服务器qq群: xxxxx");
-	ui.listWidget->addItem("限杀100, 加群不限");
+	ui.listWidget->setContextMenuPolicy(Qt::CustomContextMenu);
 }
 
 bfvnoticebot::~bfvnoticebot()
@@ -56,6 +58,7 @@ void bfvnoticebot::showContextMenu(const QPoint& pos) {
 		QAction* selectedAction = contextMenu.exec(ui.listWidget->viewport()->mapToGlobal(pos));
 		if (selectedAction == deleteAction) {
 			delete item;
+			this->saveConfig();
 		}
 		return;
 	}
@@ -76,6 +79,7 @@ void bfvnoticebot::addItemToList() {
 
 	if (ok && !text.isEmpty()) {
 		ui.listWidget->addItem(text);
+		this->saveConfig();
 	}
 }
 
@@ -300,6 +304,7 @@ void bfvnoticebot::config_napcat() {
 		this->napcatQq = qq;
 		break;
 	}
+	this->saveConfig();
 }
 
 
@@ -318,7 +323,7 @@ void bfvnoticebot::clickBtn() {
 
 		ui.pushButton->setText("停止");
 
-		
+
 		int round = ui.roundSpinBox->value();
 
 		this->timer->start(round * 1000);
@@ -334,7 +339,7 @@ void bfvnoticebot::clickBtn() {
 void bfvnoticebot::doTimer() {
 
 	int round = ui.multiSpinBox->value();
-	
+
 	int itemCount = ui.listWidget->count();
 
 	auto text = ui.actionIgnoreError->text();
@@ -405,11 +410,21 @@ void bfvnoticebot::doTimer() {
 }
 
 
+void bfvnoticebot::spinBoxValueChange(int) {
+	this->saveConfig();
+}
+
+void bfvnoticebot::radioChecked(bool) {
+	this->saveConfig();
+}
+
+
 void bfvnoticebot::ignoreApiError() {
-    auto text =	ui.actionIgnoreError->text();
+	auto text = ui.actionIgnoreError->text();
 	if (text == "忽略接口错误") {
 		ui.actionIgnoreError->setText("提示接口错误");
-	} else if (text == "提示接口错误") {
+	}
+	else if (text == "提示接口错误") {
 		ui.actionIgnoreError->setText("忽略接口错误");
 	}
 }
@@ -421,3 +436,109 @@ void bfvnoticebot::about() {
 	msgBox.exec();
 }
 
+void bfvnoticebot::readConfig() {
+
+	auto json = file::read();
+
+	auto fileNapcatUrl = json.value("napcatUrl").toString();
+
+	if (fileNapcatUrl.isEmpty()) {
+		this->napcatUrl = "http://localhost:3000";
+	}
+	else {
+		this->napcatUrl = fileNapcatUrl;
+	}
+
+	auto fileNapcatQq = json.value("napcatQq").toString();
+
+	if (fileNapcatQq.isEmpty()) {
+		this->napcatQq = "3889363571";
+	}
+	else {
+		this->napcatQq = fileNapcatQq;
+	}
+
+	QJsonArray jsonArray = json.value("msgList").toArray();
+
+	if (jsonArray.size() == 0) {
+		ui.listWidget->addItem("服务器qq群: xxxxx");
+		ui.listWidget->addItem("限杀100, 加群不限");
+	}
+	else {
+		for (int i = 0; i < jsonArray.size(); ++i) {
+			QJsonValue value = jsonArray[i];
+			ui.listWidget->addItem(value.toString());
+		}
+	}
+
+	auto interval = json.value("interval").toInt();
+
+	if (interval == 0) {
+		ui.roundSpinBox->setValue(120);
+	}
+	else {
+		ui.roundSpinBox->setValue(interval);
+	}
+
+	if (json.contains("multiMsgInterval")) {
+		auto multiMsgInterval = json.value("multiMsgInterval").toInt();
+		ui.multiSpinBox->setValue(multiMsgInterval);
+	}
+	else {
+		ui.multiSpinBox->setValue(2);
+	}
+
+
+	if (json.contains("mode")) {
+		auto mode = json.value("mode").toString();
+		if (mode == "api") {
+			ui.apiRadioButton->setChecked(true);
+		}
+		else if (mode == "napcat") {
+			ui.napcatRadioButton->setChecked(true);
+		}
+	}
+	else {
+		ui.apiRadioButton->setChecked(true);
+	}
+
+	connect(ui.roundSpinBox,
+		static_cast<void(QSpinBox::*)(int)>(&QSpinBox::valueChanged),
+		this,
+		&bfvnoticebot::spinBoxValueChange);
+
+	connect(ui.multiSpinBox,
+		static_cast<void(QSpinBox::*)(int)>(&QSpinBox::valueChanged),
+		this,
+		&bfvnoticebot::spinBoxValueChange);
+
+	connect(ui.napcatRadioButton, &QRadioButton::toggled, this, &bfvnoticebot::radioChecked);
+}
+
+void bfvnoticebot::saveConfig() {
+	QJsonObject jsonData;
+	jsonData["napcatQq"] = this->napcatQq;
+	jsonData["napcatUrl"] = this->napcatUrl;
+
+
+	int itemCount = ui.listWidget->count();
+	QJsonArray jsonArray;
+	for (int i = 0; i < itemCount; ++i) {
+		QListWidgetItem* item = ui.listWidget->item(i);
+		jsonArray.append(item->text());
+	}
+
+	jsonData["msgList"] = jsonArray;
+	jsonData["interval"] = ui.roundSpinBox->value();
+	jsonData["multiMsgInterval"] = ui.multiSpinBox->value();
+
+
+	if (ui.apiRadioButton->isChecked()) {
+		jsonData["mode"] = "api";
+	}
+	else if (ui.napcatRadioButton->isChecked()) {
+		jsonData["mode"] = "napcat";
+	}
+
+	file::write(jsonData);
+}

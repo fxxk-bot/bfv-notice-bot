@@ -3,12 +3,12 @@
 #include <QStyleFactory>
 
 
-int main(int argc, char *argv[])
+int main(int argc, char* argv[])
 {
-    QApplication::setStyle(QStyleFactory::create("Fusion"));
-    QApplication a(argc, argv);
-    bfvnoticebot w;
+	QApplication::setStyle(QStyleFactory::create("Fusion"));
+	QApplication a(argc, argv);
+	bfvnoticebot w;
 
-    w.show();
-    return a.exec();
+	w.show();
+	return a.exec();
 }

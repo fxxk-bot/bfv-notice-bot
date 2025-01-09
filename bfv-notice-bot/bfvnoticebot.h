@@ -8,36 +8,46 @@
 
 class bfvnoticebot : public QMainWindow
 {
-    Q_OBJECT
+	Q_OBJECT
 
 public:
-    bfvnoticebot(QWidget *parent = nullptr);
-    ~bfvnoticebot();
+	bfvnoticebot(QWidget* parent = nullptr);
+	~bfvnoticebot();
 
 private slots:
-    void config_napcat();
+	void config_napcat();
 
-    void config_api();
+	void config_api();
 
-    void about();
+	void about();
 
-    void showContextMenu(const QPoint& pos);
+	void showContextMenu(const QPoint& pos);
 
-    void addItemToList();
+	void addItemToList();
 
-    void clickBtn();
+	void clickBtn();
 
-    void doTimer();
+	void doTimer();
 
-    void ignoreApiError();
+	void ignoreApiError();
+
+	void spinBoxValueChange(int);
+
+	void radioChecked(bool);
+
 public:
-    QNetworkAccessManager* manager;
+	QNetworkAccessManager* manager;
 
 private:
-    Ui::bfvnoticebotClass ui;
-    QString napcatUrl;
-    QString napcatQq;
-    QString apiRemid;
-    QString apiSid;
-    QTimer* timer = nullptr;
+	Ui::bfvnoticebotClass ui;
+	QString napcatUrl;
+	QString napcatQq;
+	QString apiRemid;
+	QString apiSid;
+	QTimer* timer = nullptr;
+
+private:
+	void saveConfig();
+
+	void readConfig();
 };
